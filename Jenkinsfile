@@ -1,14 +1,33 @@
 pipeline {
-  agent any
+  agent {
+    node {
+      label 'ansible_docker'
+    }
+  }
+  options {
+    timestamps()
+    disableConcurrentBuilds()
+  }
   stages {
-    stage('First stage'){
+    stage('Setup credentials') {
       steps {
-        echo "I'm runing"  
+        sh 'mkdir -p ~/.ssh && chmod 700 ~/.ssh'
+        withCredentials([file(credentialsId: 'key', variable: 'private')]) {
+           sh 'cp $private ~/.ssh'
+        }
+        sh 'chmod 600 ~/.ssh/github_id_rsa'
+        sh 'printf "$CNF" > ~/.ssh/config'
+        sh 'ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts'
       }
     }
-    stage('Second stage'){
+    stage('Setup ansible roles') {
       steps {
-        echo "And I'm too"
+        sh 'ansible-galaxy install -r requirements.yml'
+      }
+    }
+    stage('Ansible play') {
+      steps {
+        sh 'ansible-playbook -i inventory/prod.yml site.yml'
       }
     }
   }
