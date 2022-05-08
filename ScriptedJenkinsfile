@@ -1,0 +1,29 @@
+node("ansible_docker") {
+    stage("Git checkout") {
+        git credentialsId: 'github', url: 'git@github.com:anatolben/example-playbook.git'
+    }
+    stage('Setup credentials') {
+        sh 'mkdir -p ~/.ssh && chmod 700 ~/.ssh'
+        withCredentials([file(credentialsId: 'key', variable: 'private')]) {
+           sh 'cp $private ~/.ssh'
+        }
+        sh 'chmod 600 ~/.ssh/github_id_rsa'
+        sh 'printf "$CNF" > ~/.ssh/config'
+        sh 'ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts'
+    }  
+    stage("Create ansible role") {
+        sh 'ansible-galaxy install -r requirements.yml'
+    }
+    stage("Check ssh key") {
+        secret_check=true
+    }
+    stage("Run playbook") {
+        if (secret_check) {
+            sh 'ansible-playbook site.yml -i inventory/prod.yml'
+        }
+        else {
+            echo 'no more keys'
+        }
+        
+    }
+}
